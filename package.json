@@ -1,0 +1,18 @@
+{
+  "name": "gittyper",
+  "version": "1.0.0",
+  "description": "A terminal typing game for learning real Git workflows safely.",
+  "type": "module",
+  "bin": {
+    "gittyper": "./bin/gittyper.js"
+  },
+  "scripts": {
+    "start": "node ./bin/gittyper.js",
+    "test": "node --test",
+    "check": "node --check ./bin/gittyper.js && node --check ./src/tui.js && node --check ./src/engine.js && node --check ./src/settings.js && node --check ./src/sandbox/repository.js && node --check ./src/sandbox/server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}
