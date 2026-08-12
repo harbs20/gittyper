@@ -107,6 +107,24 @@ test('Projects keeps the complete top mode bar visible at 80 columns', () => {
   assert.ok(header.length <= 80)
 })
 
+test('Projects does not wrap away the top mode bar at 202 by 53', () => {
+  const output = {
+    columns: 202, rows: 53, last: '',
+    write(value) { this.last = value },
+  }
+  const tui = new GittyperTui({}, output, { sandbox: { url: 'http://127.0.0.1:55695' } })
+  tui.running = true
+  tui.view = 'game'
+  tui.session = createSession('projects', challengeSets.projects[33])
+  tui.selectedIndex = 33
+  tui.render()
+
+  const lines = stripAnsi(output.last).split('\n')
+  assert.equal(lines.length, 53)
+  for (const line of lines) assert.ok(line.length <= 202, `line exceeded 202 columns: ${line}`)
+  for (const label of ['Learn', 'Execute', 'Workflow', 'Projects', 'Random']) assert.match(lines[0], new RegExp(label))
+})
+
 test('Random mode draws from the full bank without immediately repeating', () => {
   const expectedSize = challengeSets.learn.length + challengeSets.execute.length + challengeSets.workflow.length + challengeSets.projects.length
   assert.equal(challengeSets.random.length, expectedSize)
@@ -115,7 +133,26 @@ test('Random mode draws from the full bank without immediately repeating', () =>
   const randomIds = new Set(challengeSets.random.map((challenge) => challenge.id))
   for (const project of challengeSets.projects) assert.ok(randomIds.has(project.id), `${project.id} is missing from Random`)
   const previous = challengeSets.random[0]
-  assert.notEqual(sampleChallenge('random', previous.id).id, previous.id)
+  const next = sampleChallenge('random', previous.id)
+  assert.notEqual(next.id, previous.id)
+  assert.notDeepEqual(next.commands, previous.commands)
+})
+
+test('Projects presents a diverse bank of real Git solutions', () => {
+  const signatures = challengeSets.projects.map((challenge) => challenge.commands.join('\n'))
+  const frequencies = new Map()
+  for (const signature of signatures) frequencies.set(signature, (frequencies.get(signature) ?? 0) + 1)
+  const scenarioFrequencies = new Map()
+  for (const challenge of challengeSets.projects) {
+    const kind = challenge.scenario.kind
+    scenarioFrequencies.set(kind, (scenarioFrequencies.get(kind) ?? 0) + 1)
+  }
+
+  assert.ok(frequencies.size >= 55, `expected at least 55 solution shapes, received ${frequencies.size}`)
+  assert.ok(Math.max(...frequencies.values()) <= 4, 'one project solution is repeated too often')
+  assert.ok(scenarioFrequencies.size >= 36, `expected at least 36 repository problems, received ${scenarioFrequencies.size}`)
+  assert.ok(Math.max(...scenarioFrequencies.values()) <= 3, 'one repository problem is repeated too often')
+  assert.ok(challengeSets.projects.filter((challenge) => challenge.commands.length > 1).length >= 18)
 })
 
 test('Tab followed by Space skips to a different Random challenge', async () => {

@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="GitTyper is a terminal typing game for learning real Git workflows inside disposable repositories."
+    />
+    <meta name="theme-color" content="#090b0a" />
+    <title>GitTyper — Learn Git by doing Git</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="module" src="/main.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#install">Skip to installation</a>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="GitTyper home"><span>&gt;_</span> GitTyper</a>
+        <nav class="mode-nav" aria-label="Primary navigation">
+          <a href="/about">About</a>
+          <a class="active" href="/" aria-current="page">Install</a>
+          <a href="/features">Features</a>
+          <a href="https://github.com/harbs20/gittyper">GitHub</a>
+        </nav>
+        <span class="host" aria-hidden="true">127.0.0.1:64538</span>
+      </header>
+
+      <section class="intro" id="about" aria-labelledby="page-title">
+        <p class="intro-index">GITTYPER / 01</p>
+        <h1 id="page-title">GitTyper</h1>
+        <p>A terminal typing game for learning real Git workflows inside disposable repositories.</p>
+      </section>
+
+      <div class="workspace">
+        <aside class="session-map" aria-label="Page map">
+          <div class="map-heading">
+            <span>SESSION MAP</span>
+            <span>4 ENTRIES</span>
+          </div>
+          <p class="map-mode">INSTALL / Choose a setup</p>
+          <nav>
+            <a href="/about"><span>01</span> What it is</a>
+            <a class="active" href="/" aria-current="location"><span>02</span> Install</a>
+            <a href="#requirements"><span>03</span> Requirements</a>
+            <a href="/features"><span>04</span> Open source</a>
+          </nav>
+          <p class="map-hint">↑↓ section&nbsp; · &nbsp;↔ method</p>
+        </aside>
+
+        <main class="terminal-pane" id="install">
+          <div class="pane-title">
+            <span><b>*</b> LOCALHOST SANDBOX&nbsp; ~/install &nbsp;·&nbsp; main</span>
+            <span class="pane-stat">READY / 100%</span>
+          </div>
+
+          <section class="objective" aria-labelledby="install-title">
+            <p>OBJECTIVE 1/1</p>
+            <h2 id="install-title">Choose your setup</h2>
+            <p>Install GitTyper, then run <code>gittyper</code> from any terminal directory.</p>
+            <p class="objective-help">Tab moves between methods / Enter copies the selected command</p>
+          </section>
+
+          <section class="transcript" aria-label="Installation commands">
+            <p>Loaded installation channels for macOS, Linux, and WSL.</p>
+            <p>Choose a method below. The self-hosted curl installer is available from this deployment.</p>
+
+            <div class="method-list" role="list">
+              <article class="method active" role="listitem" data-method="curl">
+                <div class="method-meta">
+                  <h3>curl</h3>
+                  <span class="channel ready">ready</span>
+                </div>
+                <button class="command" type="button" data-command="curl" aria-label="Copy curl installation command">
+                  <span class="prompt">$</span>
+                  <code>curl -fsSL <span data-download-origin>https://gittyper.vercel.app</span>/install.sh | sh</code>
+                  <span class="copy-label">copy</span>
+                </button>
+              </article>
+
+              <article class="method" role="listitem" data-method="brew">
+                <div class="method-meta">
+                  <h3>Homebrew</h3>
+                  <span class="channel pending">public release</span>
+                </div>
+                <button class="command" type="button" data-command="brew install harbs20/tap/gittyper" aria-label="Copy Homebrew installation command">
+                  <span class="prompt">$</span>
+                  <code>brew install harbs20/tap/gittyper</code>
+                  <span class="copy-label">copy</span>
+                </button>
+              </article>
+
+              <article class="method" role="listitem" data-method="npm">
+                <div class="method-meta">
+                  <h3>npm</h3>
+                  <span class="channel pending">public release</span>
+                </div>
+                <button class="command" type="button" data-command="npm install --global gittyper" aria-label="Copy npm installation command">
+                  <span class="prompt">$</span>
+                  <code>npm install --global gittyper</code>
+                  <span class="copy-label">copy</span>
+                </button>
+              </article>
+
+              <article class="method" role="listitem" data-method="source">
+                <div class="method-meta">
+                  <h3>Source</h3>
+                  <span class="channel pending">GitHub access</span>
+                </div>
+                <button class="command command-multiline" type="button" data-command="git clone https://github.com/harbs20/gittyper.git&#10;cd gittyper&#10;npm install&#10;npm link" aria-label="Copy source installation commands">
+                  <span class="prompt">$</span>
+                  <code>git clone https://github.com/harbs20/gittyper.git<br />cd gittyper<br />npm install<br />npm link</code>
+                  <span class="copy-label">copy</span>
+                </button>
+              </article>
+            </div>
+
+            <div class="output" aria-live="polite">
+              <span class="prompt">$</span>
+              <span id="output-text">Select an install command to copy it.</span><span class="cursor" aria-hidden="true"></span>
+            </div>
+
+            <section class="requirements" id="requirements" aria-labelledby="requirements-title">
+              <h3 id="requirements-title">REQUIREMENTS</h3>
+              <p>Node.js 20+&nbsp; / &nbsp;Git&nbsp; / &nbsp;macOS, Linux, or WSL</p>
+            </section>
+
+            <section class="feature-line" id="features" aria-labelledby="features-title">
+              <h3 id="features-title">OPEN SOURCE</h3>
+              <p>Real disposable repositories. Five training modes. 100 scenarios. GPL-3.0-only.</p>
+              <p><a href="https://github.com/harbs20/gittyper">Fork GitTyper on GitHub</a> and build new workflows with the community.</p>
+            </section>
+          </section>
+        </main>
+      </div>
+
+      <footer class="statusbar">
+        <span>LOCAL SANDBOX</span>
+        <button type="button" id="help-button">? help</button>
+        <span>Enter copy&nbsp; / &nbsp;Tab method&nbsp; / &nbsp;Esc clear</span>
+      </footer>
+    </div>
+
+    <dialog id="help-dialog" aria-labelledby="help-title">
+      <form method="dialog">
+        <div class="dialog-title">
+          <h2 id="help-title">HOTKEYS</h2>
+          <button value="close" aria-label="Close help">Esc</button>
+        </div>
+        <dl>
+          <div><dt>Tab</dt><dd>Move between install commands</dd></div>
+          <div><dt>Enter</dt><dd>Copy the focused command</dd></div>
+          <div><dt>?</dt><dd>Open this help panel</dd></div>
+          <div><dt>Esc</dt><dd>Close help or clear output</dd></div>
+        </dl>
+      </form>
+    </dialog>
+  </body>
+</html>

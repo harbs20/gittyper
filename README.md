@@ -16,6 +16,8 @@ After global installation, start it from any Terminal directory with:
 gittyper
 ```
 
+The product and installation website is a static Vercel app. Build it with `npm run build:web` or preview it locally with `npm run dev:web`.
+
 No browser is required. Gittyper starts a private localhost sandbox, generates a small Atlas codebase under your operating system's temporary directory, and opens the TUI. The workspace is removed when you quit.
 
 ## Modes
@@ -42,9 +44,19 @@ You can explore with `ls`, `cat`, `pwd`, `git status`, `git diff`, `git log`, an
 
 Every exercise runs against an actual temporary Git repository with real commits, branches, indexes, diffs, stashes, and tags. The Projects bank generates realistic local codebases such as Telescope CLI, TrailMap Web, Lantern API, Pocket Notes, Weatherboard, TaskForge, Northstar Docs, and PixelPress. Nothing touches the repository from which Gittyper was launched.
 
+## Create challenges
+
+Challenge definitions live together in [`src/challenges/`](src/challenges/). Add personal or community exercises to [`src/challenges/custom.js`](src/challenges/custom.js), or add a reusable scenario family to the catalog and sandbox. The object schema, safety rules, examples, and test workflow are in [`docs/creating-challenges.md`](docs/creating-challenges.md).
+
 ## Verify
 
 ```bash
 npm test
 npm run check
 ```
+
+## License and forks
+
+Gittyper's source code is licensed under the [GNU General Public License v3.0 only](LICENSE). You may use, study, fork, modify, and redistribute it under that license. Distributed modified versions must remain under GPLv3 and make their corresponding source available.
+
+The source-code license does not grant permission to present a modified version as the official Gittyper app. Forks must clearly identify their changes and follow the [Gittyper brand policy](TRADEMARKS.md).

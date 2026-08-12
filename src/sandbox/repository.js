@@ -222,10 +222,87 @@ export class SessionSandbox {
         : extension === 'py'
           ? '\n# Follow up on the reviewed production behavior.\n'
           : '\n// Follow up on the reviewed production behavior.\n'
-      if (['status', 'diff', 'stage', 'restore', 'commit', 'stash'].includes(projectScenario.kind)) {
-        await writeFile(target, `${await readFile(target, 'utf8')}${change}`)
+      const appendProjectFile = async (file, text) => writeFile(join(this.repo, file), `${await readFile(join(this.repo, file), 'utf8')}${text}`)
+      const editTarget = async () => writeFile(target, `${await readFile(target, 'utf8')}${change}`)
+      const commitOnBranch = async (branch, message = `Complete ${projectScenario.profile.area}`) => {
+        await this.git(['switch', '-c', branch])
+        await editTarget()
+        await this.git(['add', projectScenario.profile.file])
+        await this.git(['commit', '-m', message])
       }
-      if (projectScenario.kind === 'commit') await this.git(['add', projectScenario.profile.file])
+
+      if (['status', 'diff', 'stage', 'restore', 'commit', 'stash', 'review-staged', 'unstage', 'review-commit', 'review-stage-commit', 'discard-stage-commit', 'branch-stage-commit'].includes(projectScenario.kind)) await editTarget()
+      if (['commit', 'review-staged', 'unstage', 'review-commit'].includes(projectScenario.kind)) await this.git(['add', projectScenario.profile.file])
+      if (projectScenario.kind === 'discard-stage-commit') {
+        await appendProjectFile('notes.txt', `${projectScenario.profile.label} scratch work that should not ship.\n`)
+      }
+      if (projectScenario.kind === 'selective-commit') {
+        await editTarget()
+        await appendProjectFile('notes.txt', `${projectScenario.profile.label} follow-up that does not belong in the fix.\n`)
+      }
+      if (projectScenario.kind === 'stash-untracked') {
+        await editTarget()
+        await writeFile(join(this.repo, 'spike-notes.md'), `# ${projectScenario.profile.label} spike\n`)
+      }
+      if (projectScenario.kind === 'stash-restore') {
+        await editTarget()
+        await writeFile(join(this.repo, 'spike-notes.md'), `# ${projectScenario.profile.label} spike\n`)
+        await this.git(['stash', 'push', '-u', '-m', projectScenario.stashMessage])
+      }
+      if (projectScenario.kind === 'rename-branch') await this.git(['switch', '-c', 'scratch'])
+      if (projectScenario.kind === 'delete-branch') await this.git(['branch', projectScenario.cleanupBranch])
+      if (['compare-branch', 'merge-branch'].includes(projectScenario.kind)) {
+        await commitOnBranch(projectScenario.branch)
+        await this.git(['switch', 'main'])
+      }
+      if (projectScenario.kind === 'sync-rebase') {
+        await this.createRemote()
+        await this.addRemoteMainCommit(`Refresh ${projectScenario.profile.label} overview`)
+        await commitOnBranch(projectScenario.branch)
+      }
+      if (projectScenario.kind === 'pull-update') {
+        await this.createRemote()
+        await this.addRemoteMainCommit(`Update ${projectScenario.profile.label} from origin`)
+      }
+      if (projectScenario.kind === 'publish-branch') {
+        await this.createRemote()
+        await commitOnBranch(projectScenario.branch)
+      }
+      if (projectScenario.kind === 'clean-ignored') {
+        await mkdir(join(this.repo, 'dist'), { recursive: true })
+        await mkdir(join(this.repo, 'coverage'), { recursive: true })
+        await writeFile(join(this.repo, 'dist/app.js'), 'generated bundle\n')
+        await writeFile(join(this.repo, 'coverage/index.html'), 'generated coverage\n')
+      }
+      if (projectScenario.kind === 'branch-list') await this.git(['branch', projectScenario.branch])
+      if (projectScenario.kind === 'remote-list') await this.createRemote()
+      if (projectScenario.kind === 'stash-list') {
+        await editTarget()
+        await this.git(['stash', 'push', '-m', projectScenario.stashMessage])
+      }
+      if (projectScenario.kind === 'fetch-review-rebase') {
+        await this.createRemote()
+        await this.addRemoteMainCommit(`Refresh ${projectScenario.profile.label} overview`)
+        await commitOnBranch(projectScenario.branch)
+      }
+      if (projectScenario.kind === 'merge-cleanup') {
+        await commitOnBranch(projectScenario.branch)
+        await this.git(['switch', 'main'])
+      }
+      if (projectScenario.kind === 'tag-publish') await this.createRemote()
+      if (projectScenario.kind === 'resume-stash') {
+        await editTarget()
+        await this.git(['stash', 'push', '-m', projectScenario.stashMessage])
+      }
+      if (projectScenario.kind === 'review-publish') {
+        await this.createRemote()
+        await commitOnBranch(projectScenario.branch)
+      }
+      if (projectScenario.kind === 'release-branch') return
+      if (projectScenario.kind === 'publish-tag') {
+        await this.createRemote()
+        await this.git(['tag', '-a', projectScenario.tag, '-m', `Release ${projectScenario.tag}`])
+      }
       return
     }
 
@@ -457,7 +534,10 @@ export class SessionSandbox {
     if (projectScenario) {
       const { kind, profile, branch, message, stashMessage, tag } = projectScenario
       const changedFiles = async (args) => (await gitOutput(args)).split('\n').filter(Boolean)
-      if (kind === 'status') complete = action('git:status:--short')
+      if (kind === 'explore') {
+        complete = action('ls') && action('cat')
+        step = action('ls') ? 1 : 0
+      } else if (kind === 'status') complete = action('git:status:--short')
       else if (kind === 'diff') complete = action(`git:diff:--:${profile.file}`)
       else if (kind === 'stage') complete = (await changedFiles(['diff', '--cached', '--name-only'])).includes(profile.file)
       else if (kind === 'restore') complete = action(`git:restore:${profile.file}`) && !(await changedFiles(['diff', '--name-only'])).includes(profile.file)
@@ -465,7 +545,76 @@ export class SessionSandbox {
       else if (kind === 'commit') complete = (await gitOutput(['log', '-1', '--pretty=%s'])) === message
       else if (kind === 'log') complete = action('git:log:--oneline:-5')
       else if (kind === 'stash') complete = (await gitOutput(['stash', 'list'])).includes(stashMessage) && state.porcelain.length === 0
-      else if (kind === 'tag') complete = (await gitOutput(['tag', '--list', tag])) === tag
+      else if (kind === 'review-staged') complete = action(`git:diff:--staged:--:${profile.file}`)
+      else if (kind === 'unstage') complete = state.porcelain.some((line) => line.endsWith(profile.file) && line[0] === ' ')
+      else if (kind === 'selective-commit') {
+        const committed = (await changedFiles(['show', '--pretty=', '--name-only', 'HEAD'])).join('\n')
+        complete = (await gitOutput(['log', '-1', '--pretty=%s'])) === message && committed === profile.file && state.porcelain.some((line) => line.endsWith('notes.txt'))
+        step = (await changedFiles(['diff', '--cached', '--name-only'])).includes(profile.file) ? 1 : 0
+      } else if (kind === 'stash-untracked') complete = (await gitOutput(['stash', 'list'])).includes(stashMessage) && state.porcelain.length === 0
+      else if (kind === 'stash-restore') complete = !(await gitOutput(['stash', 'list'])).includes(stashMessage) && state.porcelain.some((line) => line.endsWith(profile.file)) && state.porcelain.some((line) => line.endsWith('spike-notes.md'))
+      else if (kind === 'rename-branch') complete = state.branch === branch
+      else if (kind === 'delete-branch') complete = action(`git:branch:-d:${projectScenario.cleanupBranch}`) && !(await gitOutput(['branch', '--list', projectScenario.cleanupBranch]))
+      else if (kind === 'compare-branch') complete = action(`git:diff:main...${branch}:--:${profile.file}`)
+      else if (kind === 'merge-branch') complete = action(`git:merge:${branch}`) && (await this.git(['merge-base', '--is-ancestor', branch, 'HEAD'], this.cwd, true)).code === 0
+      else if (kind === 'sync-rebase') {
+        complete = action('git:fetch:origin') && action('git:rebase:origin/main') && state.branch === branch
+        step = action('git:fetch:origin') ? 1 : 0
+      } else if (kind === 'pull-update') complete = action('git:pull:origin:main')
+      else if (kind === 'publish-branch') complete = action(`git:push:-u:origin:${branch}`) && Boolean(await gitOutput(['branch', '--remotes', '--list', `origin/${branch}`]))
+      else if (kind === 'clean-ignored') {
+        const distExists = await stat(join(this.repo, 'dist')).then(() => true, () => false)
+        const coverageExists = await stat(join(this.repo, 'coverage')).then(() => true, () => false)
+        const dryRun = action('git:clean:-ndX')
+        complete = dryRun && action('git:clean:-fdX') && !distExists && !coverageExists
+        step = dryRun ? 1 : 0
+      } else if (kind === 'show-file') complete = action(`git:show:HEAD:${profile.file}`)
+      else if (kind === 'show-commit') complete = action('git:show:--stat:--oneline:HEAD')
+      else if (kind === 'branch-list') complete = action('git:branch')
+      else if (kind === 'remote-list') complete = action('git:remote:-v')
+      else if (kind === 'review-commit') {
+        complete = action(`git:diff:--staged:--:${profile.file}`) && (await gitOutput(['log', '-1', '--pretty=%s'])) === message
+        step = action(`git:diff:--staged:--:${profile.file}`) ? 1 : 0
+      } else if (kind === 'stash-list') complete = action('git:stash:list')
+      else if (kind === 'review-stage-commit') {
+        const reviewed = action(`git:diff:--:${profile.file}`)
+        const committed = (await changedFiles(['show', '--pretty=', '--name-only', 'HEAD'])).join('\n')
+        complete = reviewed && (await gitOutput(['log', '-1', '--pretty=%s'])) === message && committed === profile.file
+        step = (await changedFiles(['diff', '--cached', '--name-only'])).includes(profile.file) ? 2 : reviewed ? 1 : 0
+      } else if (kind === 'discard-stage-commit') {
+        const committed = (await changedFiles(['show', '--pretty=', '--name-only', 'HEAD'])).join('\n')
+        const notesClean = !state.porcelain.some((line) => line.endsWith('notes.txt'))
+        complete = action('git:restore:notes.txt') && notesClean && (await gitOutput(['log', '-1', '--pretty=%s'])) === message && committed === profile.file
+        step = (await changedFiles(['diff', '--cached', '--name-only'])).includes(profile.file) ? 2 : notesClean ? 1 : 0
+      } else if (kind === 'branch-stage-commit') {
+        const committed = (await changedFiles(['show', '--pretty=', '--name-only', 'HEAD'])).join('\n')
+        complete = state.branch === branch && (await gitOutput(['log', '-1', '--pretty=%s'])) === message && committed === profile.file
+        step = (await changedFiles(['diff', '--cached', '--name-only'])).includes(profile.file) ? 2 : state.branch === branch ? 1 : 0
+      } else if (kind === 'fetch-review-rebase') {
+        const fetched = action('git:fetch:origin')
+        const reviewed = action('git:log:--oneline:HEAD..origin/main')
+        complete = fetched && reviewed && action('git:rebase:origin/main') && state.branch === branch
+        step = reviewed ? 2 : fetched ? 1 : 0
+      } else if (kind === 'merge-cleanup') {
+        const merged = action(`git:merge:${branch}`) && state.branch === 'main' && (await gitOutput(['log', '-1', '--pretty=%s'])) === `Complete ${profile.area}`
+        complete = merged && action(`git:branch:-d:${branch}`) && !(await gitOutput(['branch', '--list', branch]))
+        step = merged ? 1 : 0
+      } else if (kind === 'tag-publish') {
+        const localTag = (await gitOutput(['tag', '--list', tag])) === tag
+        complete = localTag && action(`git:push:origin:${tag}`) && Boolean(await gitOutput(['ls-remote', '--tags', 'origin', `refs/tags/${tag}`]))
+        step = localTag ? 1 : 0
+      } else if (kind === 'resume-stash') {
+        const listed = action('git:stash:list')
+        complete = listed && action('git:stash:pop') && !(await gitOutput(['stash', 'list'])).includes(stashMessage) && state.porcelain.some((line) => line.endsWith(profile.file))
+        step = listed ? 1 : 0
+      } else if (kind === 'review-publish') {
+        const reviewed = action('git:log:--oneline:origin/main..HEAD')
+        complete = reviewed && action(`git:push:-u:origin:${branch}`) && Boolean(await gitOutput(['branch', '--remotes', '--list', `origin/${branch}`]))
+        step = reviewed ? 1 : 0
+      } else if (kind === 'release-tag' || kind === 'tag') complete = (await gitOutput(['tag', '--list', tag])) === tag
+      else if (kind === 'release-branch') complete = state.branch === branch
+      else if (kind === 'release-history') complete = action('git:log:--oneline:-3')
+      else if (kind === 'publish-tag') complete = action(`git:push:origin:${tag}`) && Boolean(await gitOutput(['ls-remote', '--tags', 'origin', `refs/tags/${tag}`]))
     } else if (id === 'init') complete = Boolean(state.branch)
     else if (id === 'status') complete = action('git:status')
     else if (id === 'add') complete = state.porcelain.some((line) => /^M\s+README\.md$/.test(line))

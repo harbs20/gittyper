@@ -8,11 +8,22 @@
   },
   "scripts": {
     "start": "node ./bin/gittyper.js",
+    "build": "npm run build:web",
+    "build:web": "node ./scripts/build-web.js",
+    "dev:web": "npm run build:web && node ./scripts/serve-web.js",
     "test": "node --test",
-    "check": "node --check ./bin/gittyper.js && node --check ./src/tui.js && node --check ./src/engine.js && node --check ./src/settings.js && node --check ./src/sandbox/repository.js && node --check ./src/sandbox/server.js"
+    "check": "node --check ./bin/gittyper.js && node --check ./src/challenges.js && node --check ./src/challenges/catalog.js && node --check ./src/challenges/custom.js && node --check ./src/tui.js && node --check ./src/engine.js && node --check ./src/settings.js && node --check ./src/sandbox/repository.js && node --check ./src/sandbox/server.js && node --check ./scripts/build-web.js && node --check ./scripts/serve-web.js && node --check ./web/main.js"
   },
   "engines": {
     "node": ">=20"
   },
-  "license": "MIT"
+  "files": [
+    "bin",
+    "docs",
+    "src",
+    "LICENSE",
+    "README.md",
+    "TRADEMARKS.md"
+  ],
+  "license": "GPL-3.0-only"
 }

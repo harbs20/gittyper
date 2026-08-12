@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="About GitTyper, the terminal game for learning real Git workflows safely." />
+    <meta name="theme-color" content="#090b0a" />
+    <title>About — GitTyper</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="module" src="/main.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#about-content">Skip to about GitTyper</a>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="GitTyper home"><span>&gt;_</span> GitTyper</a>
+        <nav class="mode-nav" aria-label="Primary navigation">
+          <a class="active" href="/about" aria-current="page">About</a>
+          <a href="/">Install</a>
+          <a href="/features">Features</a>
+          <a href="https://github.com/harbs20/gittyper">GitHub</a>
+        </nav>
+        <span class="host" aria-hidden="true">127.0.0.1:64538</span>
+      </header>
+
+      <section class="intro" aria-labelledby="page-title">
+        <p class="intro-index">GITTYPER / 00</p>
+        <h1 id="page-title">About GitTyper</h1>
+        <p>Learn Git by working inside repositories you are allowed to break.</p>
+      </section>
+
+      <div class="workspace">
+        <aside class="session-map" aria-label="Page map">
+          <div class="map-heading"><span>SESSION MAP</span><span>4 ENTRIES</span></div>
+          <p class="map-mode">ABOUT / Why GitTyper</p>
+          <nav>
+            <a class="active" href="/about" aria-current="location"><span>01</span> What it is</a>
+            <a href="/"><span>02</span> Install</a>
+            <a href="/#requirements"><span>03</span> Requirements</a>
+            <a href="/features"><span>04</span> Open source</a>
+          </nav>
+          <p class="map-hint">↑↓ section&nbsp; · &nbsp;↔ page</p>
+        </aside>
+
+        <main class="content-pane" id="about-content">
+          <div class="pane-title">
+            <span><b>*</b> LOCALHOST SANDBOX&nbsp; ~/about &nbsp;·&nbsp; main</span>
+            <span class="pane-stat">ABOUT / 100%</span>
+          </div>
+          <section class="objective" aria-labelledby="about-objective">
+            <p>OBJECTIVE 1/1</p>
+            <h2 id="about-objective">Build Git muscle memory without risking real work</h2>
+            <p>Every challenge creates a disposable repository with real commits, branches, indexes, diffs, tags, and stashes.</p>
+          </section>
+          <section class="content-transcript">
+            <p>Loaded GitTyper product context.</p>
+            <p class="objective-help">The commands are real. The repository is temporary.</p>
+
+            <article class="content-block">
+              <h3>WHY IT EXISTS</h3>
+              <div>
+                <p>Git is easier to remember when you use it to solve recognizable problems instead of memorizing isolated commands.</p>
+                <p>GitTyper turns those workflows into focused typing drills, guided lessons, and state-based repository objectives.</p>
+              </div>
+            </article>
+
+            <article class="content-block">
+              <h3>SAFE BY DEFAULT</h3>
+              <div>
+                <p>Gittyper generates a fresh codebase inside your operating system’s temporary directory and removes it when you quit.</p>
+                <p>Commands are parsed without a shell, paths cannot leave the sandbox, network Git operations are blocked, and only an explicit command allowlist is available.</p>
+              </div>
+            </article>
+
+            <article class="content-block">
+              <h3>REAL PRACTICE</h3>
+              <div>
+                <p>Explore with <code>git status</code>, <code>git diff</code>, <code>git log</code>, <code>ls</code>, and <code>cat</code>, then complete objectives by changing repository state.</p>
+                <p>Equivalent correct workflows are accepted; hints are examples rather than rigid answer strings.</p>
+              </div>
+            </article>
+
+            <p class="content-cta"><span class="prompt">$</span> <a href="/">Install GitTyper</a> or <a href="/features">inspect all five modes</a><span class="cursor" aria-hidden="true"></span></p>
+          </section>
+        </main>
+      </div>
+
+      <footer class="statusbar">
+        <span>LOCAL SANDBOX</span>
+        <span>ABOUT</span>
+        <span>Install&nbsp; / &nbsp;Features&nbsp; / &nbsp;GitHub source</span>
+      </footer>
+    </div>
+  </body>
+</html>

@@ -616,7 +616,7 @@ export class GittyperTui {
     const lines = [
       style(ansi.muted, `SESSION MAP  ${this.completed.size} CLEARED`),
       style(ansi.muted, `${start + 1}-${start + visibleItems.length} OF ${items.length}`),
-      style(ansi.lime, `${modes[this.session.mode].label.toUpperCase()} / ${modes[this.session.mode].short}`),
+      style(ansi.lime, truncate(`${modes[this.session.mode].label.toUpperCase()} / ${modes[this.session.mode].short}`, width)),
       style(ansi.dim, rule(width - 1)),
     ]
     visibleItems.forEach((item, visibleIndex) => {
