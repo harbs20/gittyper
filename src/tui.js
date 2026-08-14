@@ -1,5 +1,15 @@
 import { challengeSets, modes, sampleChallenge } from './challenges.js'
 import { challengeAt, createSession, modeOrder, sessionStats } from './engine.js'
+import {
+  achievementProgress,
+  achievements,
+  emptyProgress,
+  normalizeProgress,
+  progressionState,
+  progressStats,
+  recordAttempt,
+  recordCompletion,
+} from './progress.js'
 import { defaultUiSettings, normalizeUiSettings } from './settings.js'
 
 const esc = '\u001b['
@@ -89,16 +99,28 @@ function wrapText(text, width) {
 }
 
 export class GittyperTui {
-  constructor(input, output, { sandbox, onExit, settings = defaultUiSettings, saveSettings } = {}) {
+  constructor(input, output, {
+    sandbox,
+    onExit,
+    settings = defaultUiSettings,
+    saveSettings,
+    progress = emptyProgress(),
+    saveProgress,
+  } = {}) {
     this.input = input
     this.output = output
     this.sandbox = sandbox
     this.onExit = onExit
     this.settings = normalizeUiSettings(settings)
     this.saveSettings = saveSettings
+    this.progress = normalizeProgress(progress)
+    this.saveProgress = saveProgress
     this.session = createSession()
     this.selectedIndex = challengeSets.learn.indexOf(this.session.challenge)
-    this.completed = new Set()
+    this.completed = new Set(Object.entries(this.progress.challenges)
+      .filter(([, challenge]) => challenge.completions > 0)
+      .map(([id]) => id))
+    this.progressSaveError = ''
     this.terminalLines = []
     this.outputScroll = 0
     this.commandHistory = []
@@ -188,6 +210,35 @@ export class GittyperTui {
     this.busy = false
   }
 
+  challengeMode(challenge = this.session.challenge) {
+    return challenge.sourceMode || this.session.mode
+  }
+
+  progressResult(stats = this.session.finalStats ?? sessionStats(this.session)) {
+    const completedAt = this.session.completedAt ?? Date.now()
+    return {
+      id: this.session.challenge.id,
+      title: this.session.challenge.title,
+      mode: this.challengeMode(),
+      wpm: stats.wpm,
+      accuracy: stats.accuracy,
+      durationMs: this.session.startedAt ? Math.max(0, completedAt - this.session.startedAt) : 0,
+      typed: this.session.typed,
+      errors: this.session.errors,
+      completedAt: new Date(completedAt).toISOString(),
+    }
+  }
+
+  async persistProgress() {
+    if (!this.saveProgress) return
+    try {
+      await this.saveProgress(this.progress)
+      this.progressSaveError = ''
+    } catch (error) {
+      this.progressSaveError = `Progress could not be saved: ${error.message}`
+    }
+  }
+
   describeState(state) {
     const lines = [`${state.cwd}${state.branch ? `  ·  ${state.branch}` : '  ·  not a repository'}`]
     if (state.porcelain?.length) lines.push(...state.porcelain)
@@ -233,6 +284,19 @@ export class GittyperTui {
     this.terminalLines.push(`$ ${command}`)
     this.render()
 
+    let progressChanged = false
+    if (!this.session.attemptRecorded) {
+      const attemptedAt = new Date().toISOString()
+      this.progress = recordAttempt(this.progress, {
+        id: this.session.challenge.id,
+        title: this.session.challenge.title,
+        mode: this.challengeMode(),
+        attemptedAt,
+      })
+      this.session.attemptRecorded = true
+      progressChanged = true
+    }
+
     const previousStep = this.session.step
     const result = await this.sandbox.command(command)
     const commandLines = result.output ? result.output.split('\n') : []
@@ -256,13 +320,21 @@ export class GittyperTui {
     if (result.complete) {
       this.session.completedAt ??= Date.now()
       this.session.finalStats ??= sessionStats(this.session, this.session.completedAt)
+      if (!this.session.completionRecorded) {
+        const recorded = recordCompletion(this.progress, this.progressResult(this.session.finalStats))
+        this.progress = recorded.progress
+        this.session.newAchievements = recorded.unlocked
+        this.session.completionRecorded = true
+        this.completed.add(this.session.challenge.id)
+        progressChanged = true
+      }
     }
     this.session.feedback = result.complete
       ? { type: 'success', text: 'Repository objective achieved.' }
       : result.ok
         ? { type: 'success', text: 'Command ran. Inspect the output and continue.' }
         : { type: 'error', text: result.output || 'Command failed.' }
-    if (result.complete) this.completed.add(`${this.session.mode}:${this.session.challenge.id}`)
+    if (progressChanged) await this.persistProgress()
     this.busy = false
   }
 
@@ -300,7 +372,8 @@ export class GittyperTui {
       : width - Math.min(33, Math.max(27, Math.floor(width * .26))) - 3
     const inner = Math.max(1, gameWidth - 4)
     const promptRows = compact ? 1 : wrapText(this.session.challenge.prompt, inner).length
-    const frameRows = this.session.complete ? 7 : 7 + promptRows
+    const achievementRows = this.session.complete && this.session.newAchievements.length ? 1 : 0
+    const frameRows = this.session.complete ? 8 + achievementRows : 8 + promptRows
     return Math.max(1, rowBudget - frameRows - 1)
   }
 
@@ -326,6 +399,18 @@ export class GittyperTui {
   async handleKey(key) {
     if (key === '\u0003') return this.stop()
     if (this.busy) return
+
+    if (key === '\u0010') {
+      this.view = this.view === 'progress' ? 'game' : 'progress'
+      return
+    }
+
+    if (this.view === 'progress') {
+      if (key === '\u001b' || key === '\r' || key === '\n') this.view = 'game'
+      else if (key === '\u0015') this.view = 'settings'
+      else if (key === '\u000b') this.view = 'hotkeys'
+      return
+    }
 
     if (this.view === 'instructions') {
       if (key === '\u001b') return this.stop()
@@ -450,6 +535,11 @@ export class GittyperTui {
       return
     }
 
+    if (this.view === 'progress') {
+      this.output.write(`${ansi.clear}${this.renderProgress(width, height).slice(0, height).join('\n')}`)
+      return
+    }
+
     if (height < 20) {
       this.output.write(`${ansi.clear}${this.renderShort(width, height, stats).slice(0, height).join('\n')}`)
       return
@@ -478,7 +568,7 @@ export class GittyperTui {
       '',
       style(ansi.muted, 'Left/Right edits a command; at an empty prompt it changes modes'),
       style(ansi.muted, 'Up/Down history   Ctrl+Up/Down drills   Shift+Up/Down transcript'),
-      style(ansi.muted, 'Ctrl+K hotkeys   Ctrl+U settings   ? help   Esc quits'),
+      style(ansi.muted, 'Ctrl+P progress   Ctrl+K hotkeys   Ctrl+U settings   ? help   Esc quits'),
       '',
       style(ansi.bgLime + ansi.ink + ansi.bold, ' Press Enter to start '),
     ]
@@ -540,6 +630,7 @@ export class GittyperTui {
       key('Ctrl+H', 'show or hide a hint when enabled'),
       '',
       style(ansi.bold, 'Interface'),
+      key('Ctrl+P', 'open progress, stats, and advancements'),
       key('Ctrl+U', 'open settings'),
       key('Ctrl+K', 'open or close this hotkey reference'),
       key('?', 'open the quick-start page from an empty prompt'),
@@ -548,6 +639,52 @@ export class GittyperTui {
       style(ansi.muted, 'Press Enter, Ctrl+K, or Esc to return to the game.'),
     ]
     return body.map((line) => visibleLength(line) > width ? truncate(line, width) : line).slice(0, height)
+  }
+
+  renderProgress(width, height) {
+    const stats = progressStats(this.progress)
+    const progression = progressionState(this.progress, challengeSets)
+    const title = `${style(ansi.lime, logoMark())} ${style(ansi.bold + ansi.lime, 'gittyper')}  PROGRESS`
+    const modeLine = (mode) => {
+      const mastered = progression.mastered[mode]
+      const total = challengeSets[mode].length
+      let state = 'READY'
+      if (mode === 'execute' && !progression.ready.execute) {
+        state = `AFTER ${progression.mastered.learn}/${progression.targets.learn} LEARN`
+      } else if (mode === 'workflow' && !progression.ready.workflow) {
+        state = `AFTER ${progression.mastered.learn}/${progression.targets.learn} LEARN + ${progression.mastered.execute}/${progression.targets.execute} EXECUTE`
+      }
+      return `${pad(modes[mode].label, 10)} ${String(mastered).padStart(2)}/${total} mastered  ${state}`
+    }
+    const next = modes[progression.recommendedMode].label
+    const body = [
+      title,
+      style(ansi.dim, rule(width)),
+      '',
+      style(ansi.bold, 'LIFETIME STATS'),
+      `${stats.completions} objectives completed  ·  ${stats.uniqueCompleted}/${challengeSets.random.length} unique mastered  ·  ${stats.attempts} attempts`,
+      `${stats.averageWpm} average WPM  ·  ${stats.bestWpm} best WPM  ·  ${stats.accuracy}% lifetime accuracy`,
+      '',
+      style(ansi.bold, 'LEARN -> EXECUTE -> WORKFLOW'),
+      modeLine('learn'),
+      modeLine('execute'),
+      modeLine('workflow'),
+      style(ansi.lime, `Recommended now: ${next}. Every mode remains open for free exploration.`),
+      '',
+      style(ansi.bold, 'ADVANCEMENTS'),
+      ...achievements.map((achievement) => {
+        const current = Math.min(achievementProgress(this.progress, achievement), achievement.target)
+        const unlocked = this.progress.unlockedAchievements[achievement.id]
+        const marker = unlocked ? style(ansi.lime, glyphs.done) : style(ansi.muted, `${current}/${achievement.target}`)
+        return `${pad(marker, 8)} ${style(unlocked ? ansi.bold : ansi.muted, achievement.title)} — ${achievement.description}`
+      }),
+      '',
+      this.progressSaveError ? style(ansi.coral, this.progressSaveError) : '',
+      style(ansi.muted, 'Ctrl+P, Enter, or Esc returns to the game.'),
+    ]
+    return body
+      .map((line) => visibleLength(line) > width ? truncate(line, width) : line)
+      .slice(0, height)
   }
 
   renderShort(width, height, stats) {
@@ -569,7 +706,8 @@ export class GittyperTui {
       ? style(ansi.bold, truncate('[OBJECTIVE ACHIEVED] Enter: next drill  PgUp: transcript', width))
       : commandPrompt(this.session.input, this.cursorPosition, width))
     lines.push(style(this.session.feedback?.type === 'error' ? ansi.coral : ansi.muted, truncate(this.session.feedback?.text ?? '', width)))
-    lines.push(style(ansi.muted, truncate(`? help · Enter run · ${stats.wpm} WPM · Esc quit`, width)))
+    const lifetime = progressStats(this.progress)
+    lines.push(style(ansi.muted, truncate(`Ctrl+P ${lifetime.uniqueCompleted} mastered · Enter run · ${stats.wpm} WPM · Esc quit`, width)))
     return lines
   }
 
@@ -610,25 +748,27 @@ export class GittyperTui {
 
   renderRail(width, rowBudget = 24) {
     const items = challengeSets[this.session.mode]
+    const lifetime = progressStats(this.progress)
+    const progression = progressionState(this.progress, challengeSets)
     const capacity = Math.max(3, rowBudget - 7)
     const start = Math.max(0, Math.min(items.length - capacity, this.selectedIndex - Math.floor(capacity / 2)))
     const visibleItems = items.slice(start, start + capacity)
     const lines = [
-      style(ansi.muted, `SESSION MAP  ${this.completed.size} CLEARED`),
+      style(ansi.muted, `MASTERY  ${lifetime.uniqueCompleted}/${challengeSets.random.length} UNIQUE`),
       style(ansi.muted, `${start + 1}-${start + visibleItems.length} OF ${items.length}`),
       style(ansi.lime, truncate(`${modes[this.session.mode].label.toUpperCase()} / ${modes[this.session.mode].short}`, width)),
       style(ansi.dim, rule(width - 1)),
     ]
     visibleItems.forEach((item, visibleIndex) => {
       const index = start + visibleIndex
-      const done = this.completed.has(`${this.session.mode}:${item.id}`)
+      const done = this.completed.has(item.id)
       const marker = done ? style(ansi.lime, glyphs.done) : String(index + 1).padStart(2, '0')
       const label = truncate(item.title, width - 6)
       lines.push(index === this.selectedIndex
         ? style(ansi.bgLime + ansi.ink, ` ${marker} ${pad(label, width - 5)} `)
         : ` ${style(ansi.muted, marker)} ${label}`)
     })
-    lines.push('', style(ansi.dim, truncate('Ctrl+Up/Down drill / Left/Right on empty prompt changes mode', width - 1)))
+    lines.push('', style(ansi.dim, truncate(`NEXT: ${modes[progression.recommendedMode].label} / Ctrl+P progress`, width - 1)))
     return lines
   }
 
@@ -636,6 +776,10 @@ export class GittyperTui {
     const { challenge, step, input, complete, showHint } = this.session
     const inner = width - 4
     const expected = challenge.commands[step]
+    const mastery = this.progress.challenges[challenge.id]
+    const masteryText = mastery?.completions
+      ? `MASTERED ${mastery.completions}x / BEST ${mastery.bestWpm} WPM / ${mastery.bestAccuracy}%`
+      : `${mastery?.attempts ?? 0} ATTEMPTS / NOT YET MASTERED`
     const statsText = `${stats.wpm} WPM / ${stats.accuracy}%`
     const location = truncate(this.session.repoState[0] ?? '', Math.max(1, inner - statsText.length - 23))
     const terminalTitle = `${style(this.busy ? ansi.muted : ansi.lime, glyphs.dot)} LOCALHOST SANDBOX  ${location}`
@@ -649,6 +793,11 @@ export class GittyperTui {
     if (complete) {
       lines.push(boxLine(style(ansi.bgLime + ansi.ink + ansi.bold, ` ${glyphs.done} OBJECTIVE ACHIEVED `), width))
       lines.push(boxLine(style(ansi.bold, truncate(challenge.title, inner)), width))
+      lines.push(boxLine(style(ansi.lime, truncate(masteryText, inner)), width))
+      if (this.session.newAchievements.length) {
+        const names = this.session.newAchievements.map((achievement) => achievement.title).join(', ')
+        lines.push(boxLine(style(ansi.lime + ansi.bold, truncate(`ADVANCEMENT UNLOCKED: ${names}`, inner)), width))
+      }
       const completionHelp = this.outputScroll
         ? `VIEWING ${this.outputScroll} LINES BACK / Page Down returns to the latest output`
         : 'Enter: next drill / Ctrl+R: replay / Page Up: earlier transcript'
@@ -656,6 +805,7 @@ export class GittyperTui {
     } else {
       lines.push(boxLine(style(ansi.muted, `OBJECTIVE ${step + 1}/${challenge.commands.length}`), width))
       lines.push(boxLine(style(ansi.bold + ansi.paper, truncate(challenge.title, inner)), width))
+      lines.push(boxLine(style(ansi.dim, truncate(masteryText, inner)), width))
       const promptLines = compact ? [truncate(challenge.prompt, inner)] : wrapText(challenge.prompt, inner)
       for (const line of promptLines) lines.push(boxLine(style(ansi.muted, line), width))
       if (this.outputScroll) lines.push(boxLine(style(ansi.dim, `VIEWING ${this.outputScroll} LINES BACK / Page Down returns to the prompt`), width))
@@ -711,7 +861,7 @@ export class GittyperTui {
 
   renderFooter(width) {
     const left = style(ansi.lime, 'LOCAL SANDBOX')
-    const help = '? help / Ctrl+K keys / Ctrl+U settings / Shift+Up/Down scroll / Esc quit'
+    const help = 'Ctrl+P progress / ? help / Ctrl+K keys / Ctrl+U settings / Esc quit'
     if (visibleLength(left) + help.length + 1 > width) {
       return style(ansi.muted, truncate('Ctrl+K hotkeys / Ctrl+U settings / Shift+Up/Down transcript', width))
     }

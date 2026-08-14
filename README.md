@@ -34,9 +34,13 @@ Use Left/Right to move through and edit the current command line. When the promp
 
 Press `Ctrl+K` for the complete in-game hotkey reference.
 
+Press `Ctrl+P` to open durable learner progress: lifetime completions, unique mastery, attempts, WPM, accuracy, per-mode advancement, and achievements. Completed drills stay marked across launches, and each drill shows its completion count plus best WPM and accuracy. Gittyper recommends a Learn → Execute → Workflow path as milestones are reached, but every mode always remains available for free exploration.
+
+Achievements include milestones such as **Centurion** for completing 100 objectives and **Fiery Typist** for completing 100 objectives above 40 WPM. Repeat completions count toward lifetime and performance achievements; mastering the same objective repeatedly counts once toward unique mastery.
+
 Gittyper opens with a minimal controls page. Press `?` from an empty command line to view it again. Commands, output, and the next prompt flow through one continuous terminal transcript. The game automatically switches between a full-width workspace, a drill-list layout, and a reduced-height layout as the terminal is resized.
 
-Press `Ctrl+U` to customize contrast, color, border characters, and how much help Gittyper provides. Assistance settings control automatic hints, the Learn-mode typing guide, and whether a successful command is confirmed between steps of a multi-command objective. The readable default uses the terminal's own foreground and background colors, so it works with light and dark Terminal profiles. Preferences are saved to `~/.config/gittyper/settings.json`. Your terminal app controls the actual font family and font size.
+Press `Ctrl+U` to customize contrast, color, border characters, and how much help Gittyper provides. Assistance settings control automatic hints, the Learn-mode typing guide, and whether a successful command is confirmed between steps of a multi-command objective. The readable default uses the terminal's own foreground and background colors, so it works with light and dark Terminal profiles. Preferences are saved to `~/.config/gittyper/settings.json`; learner history is saved separately to `~/.local/share/gittyper/progress.json` (or `$XDG_DATA_HOME/gittyper/progress.json`). Both live outside the repository and disposable practice workspaces. Your terminal app controls the actual font family and font size.
 
 WPM stops at the moment an objective is achieved, so the result remains fixed while you review or scroll through the transcript.
 

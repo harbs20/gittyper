@@ -38,6 +38,9 @@ export function createSession(mode = 'learn', challenge) {
     finalStats: null,
     typed: 0,
     errors: 0,
+    attemptRecorded: false,
+    completionRecorded: false,
+    newAchievements: [],
   }
 }
 

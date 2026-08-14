@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { GittyperTui } from '../src/tui.js'
 import { createSandboxServer, SandboxClient } from '../src/sandbox/server.js'
 import { loadUiSettings, saveUiSettings } from '../src/settings.js'
+import { loadProgress, saveProgress } from '../src/progress.js'
 
 const { version } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
 const [option, ...extraOptions] = process.argv.slice(2)
@@ -32,10 +33,13 @@ if (option || extraOptions.length) {
 const host = await createSandboxServer()
 const sandbox = new SandboxClient(host.url, host.token)
 const settings = await loadUiSettings()
+const progress = await loadProgress()
 const app = new GittyperTui(process.stdin, process.stdout, {
   sandbox,
   settings,
   saveSettings: saveUiSettings,
+  progress,
+  saveProgress,
   onExit: () => host.close(),
 })
 await app.start()

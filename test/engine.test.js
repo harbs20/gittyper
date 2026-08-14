@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { compareCommand, createSession, sessionStats } from '../src/engine.js'
 import { challengeSets, executeChallenges, learnChallenges, sampleChallenge } from '../src/challenges.js'
+import { emptyProgress, recordCompletion } from '../src/progress.js'
 import { GittyperTui, stripAnsi, tokenizeKeys } from '../src/tui.js'
 
 test('character comparison supports Learn mode guidance', () => {
@@ -58,6 +59,58 @@ test('the TUI snapshots final stats when the sandbox reports completion', async 
   assert.deepEqual(tui.session.finalStats, sessionStats(tui.session, tui.session.completedAt + 600_000))
 })
 
+test('the TUI records and saves a completion exactly once', async () => {
+  const challenge = learnChallenges.find((item) => item.id === 'status')
+  let saves = 0
+  const sandbox = {
+    url: 'http://127.0.0.1:7331',
+    async command() {
+      return {
+        ok: true, complete: true, step: 0, output: 'clean',
+        state: { cwd: '~/sandbox/atlas', branch: 'main', porcelain: [] },
+      }
+    },
+  }
+  const tui = new GittyperTui({}, { write() {} }, {
+    sandbox,
+    progress: emptyProgress(),
+    async saveProgress() { saves += 1 },
+  })
+  tui.session = createSession('learn', challenge)
+  tui.session.input = 'git status'
+  await tui.executeInput()
+
+  assert.equal(tui.progress.totals.attempts, 1)
+  assert.equal(tui.progress.totals.completions, 1)
+  assert.equal(tui.progress.challenges.status.completions, 1)
+  assert.equal(saves, 1)
+  assert.equal(tui.completed.has('status'), true)
+
+  tui.session.input = 'git status'
+  await tui.executeInput()
+  assert.equal(tui.progress.totals.completions, 1)
+  assert.equal(saves, 1)
+})
+
+test('Random mode completion credits the challenge source mode', async () => {
+  const challenge = challengeSets.random.find((item) => item.sourceMode === 'execute')
+  const sandbox = {
+    url: 'http://127.0.0.1:7331',
+    async command() {
+      return {
+        ok: true, complete: true, step: challenge.commands.length - 1, output: 'done',
+        state: { cwd: '~/sandbox/atlas', branch: 'main', porcelain: [] },
+      }
+    },
+  }
+  const tui = new GittyperTui({}, { write() {} }, { sandbox })
+  tui.session = createSession('random', challenge)
+  tui.session.input = challenge.commands.at(-1)
+  await tui.executeInput()
+
+  assert.equal(tui.progress.challenges[challenge.id].mode, 'execute')
+})
+
 test('terminal input chunks preserve arrows, pages, and regular keys', () => {
   assert.deepEqual(tokenizeKeys('\t\r'), ['\t', '\r'])
   assert.deepEqual(tokenizeKeys('\u001b[Cgit'), ['\u001b[C', 'g', 'i', 't'])
@@ -79,7 +132,7 @@ test('instructions and game layouts stay within live terminal dimensions', () =>
     const tui = new GittyperTui({}, output, { sandbox: { url: 'http://127.0.0.1:7331' } })
     tui.running = true
 
-    for (const view of ['instructions', 'settings', 'hotkeys', 'game']) {
+    for (const view of ['instructions', 'settings', 'hotkeys', 'progress', 'game']) {
       tui.view = view
       tui.terminalLines = Array.from({ length: 60 }, (_, index) => `output line ${index + 1}`)
       tui.render()
@@ -105,6 +158,28 @@ test('Projects keeps the complete top mode bar visible at 80 columns', () => {
   const header = stripAnsi(output.last).split('\n')[0]
   for (const label of ['Learn', 'Execute', 'Workflow', 'Projects', 'Random']) assert.match(header, new RegExp(label))
   assert.ok(header.length <= 80)
+})
+
+test('durable mastery and advancements render in the TUI', () => {
+  const output = { columns: 120, rows: 32, last: '', write(value) { this.last = value } }
+  let progress = emptyProgress()
+  ;({ progress } = recordCompletion(progress, {
+    id: 'status', title: 'Check repository status', mode: 'learn', wpm: 48,
+    accuracy: 100, durationMs: 10_000, typed: 50, errors: 0,
+    completedAt: '2026-08-13T12:00:00.000Z',
+  }))
+  const tui = new GittyperTui({}, output, {
+    sandbox: { url: 'http://127.0.0.1:7331' }, progress,
+  })
+  tui.running = true
+  tui.view = 'progress'
+  tui.render()
+  const screen = stripAnsi(output.last)
+
+  assert.match(screen, /1 objectives completed/)
+  assert.match(screen, /Recommended now: Learn/)
+  assert.match(screen, /First Steps/)
+  assert.match(screen, /Fiery Typist/)
 })
 
 test('Projects does not wrap away the top mode bar at 202 by 53', () => {
