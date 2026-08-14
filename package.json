@@ -1,10 +1,23 @@
 {
   "name": "gittyper",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A terminal typing game for learning real Git workflows safely.",
+  "keywords": [
+    "git",
+    "terminal",
+    "tui",
+    "typing",
+    "education"
+  ],
+  "homepage": "https://gittyper.vercel.app",
+  "bugs": "https://github.com/harbs20/gittyper/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/harbs20/gittyper.git"
+  },
   "type": "module",
   "bin": {
-    "gittyper": "./bin/gittyper.js"
+    "gittyper": "bin/gittyper.js"
   },
   "scripts": {
     "start": "node ./bin/gittyper.js",
@@ -25,5 +38,8 @@
     "README.md",
     "TRADEMARKS.md"
   ],
-  "license": "GPL-3.0-only"
+  "license": "GPL-3.0-only",
+  "publishConfig": {
+    "access": "public"
+  }
 }
